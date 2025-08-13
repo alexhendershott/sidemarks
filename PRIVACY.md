@@ -77,4 +77,4 @@ We may update this privacy policy from time to time. Any changes will be reflect
 
 ---
 
-*This privacy policy is effective as of August 20245.*
+*This privacy policy is effective as of August 2025.*
