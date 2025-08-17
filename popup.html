@@ -127,6 +127,65 @@
     .platform-header:first-child {
       margin-top: 8px;
     }
+    
+    .search-container {
+      margin-top: 12px;
+      margin-bottom: 8px;
+    }
+    
+    .search-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    
+    .search-input {
+      width: 100%;
+      padding: 8px 32px 8px 12px;
+      border: 1px solid #e1e5e9;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: inherit;
+      background: #ffffff;
+      color: #333;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    
+    .search-input:focus {
+      border-color: #007bff;
+      box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+    }
+    
+    .search-input::placeholder {
+      color: #999;
+    }
+    
+    .search-icon {
+      position: absolute;
+      right: 10px;
+      font-size: 22px;
+      color: #999;
+      pointer-events: none;
+      transform: rotate(45deg);
+      top: 3px;
+    }
+    
+    .bookmark-item.hidden {
+      display: none;
+    }
+    
+    .platform-header.hidden {
+      display: none;
+    }
+    
+    .no-results {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+      font-size: 12px;
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
@@ -178,6 +237,13 @@
   <div class="stats">
     <div class="stats-number" id="bookmarkCount">0</div>
     <div class="stats-label">Bookmarked Conversations</div>
+  </div>
+  
+  <div class="search-container" id="searchContainer" style="display: none;">
+    <div class="search-wrapper">
+      <input type="text" id="searchInput" placeholder="Search bookmarks..." class="search-input">
+      <div class="search-icon">&#9906;</div>
+    </div>
   </div>
   
   <div class="bookmarks-list" id="bookmarksList" style="display: none;">

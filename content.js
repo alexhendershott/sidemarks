@@ -35,6 +35,118 @@ function getPlatform() {
   return 'unknown';
 }
 
+// Setup SPA navigation support
+function setupSPASupport() {
+  const platform = getPlatform();
+  console.log('SideMarks: Setting up SPA support for', platform);
+  
+  // Track URL changes
+  let lastUrl = location.href;
+  
+  // URL change observer for all platforms
+  const urlObserver = new MutationObserver(() => {
+    const currentUrl = location.href;
+    if (currentUrl !== lastUrl) {
+      console.log('SideMarks: URL changed from', lastUrl, 'to', currentUrl);
+      lastUrl = currentUrl;
+      
+      // URL changed, restore bookmarks with delays to ensure DOM is ready
+      setTimeout(restoreBookmarks, 100);
+      setTimeout(restoreBookmarks, 500);
+      setTimeout(restoreBookmarks, 1000);
+    }
+  });
+  
+  // Observe document for URL changes (works for all SPAs)
+  urlObserver.observe(document, { 
+    subtree: true, 
+    childList: true 
+  });
+  
+  // DOM mutation observer to detect when conversation links are added
+  const domObserver = new MutationObserver((mutations) => {
+    let shouldRestore = false;
+    
+    mutations.forEach((mutation) => {
+      if (mutation.type === 'childList') {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            // Check if conversation links were added
+            if (node.querySelector) {
+              const hasConversationLinks = 
+                node.querySelector('a[href*="/c/"]') || // ChatGPT
+                node.querySelector('a[href*="/chat/"]'); // Claude/Grok
+              
+              if (hasConversationLinks) {
+                shouldRestore = true;
+              }
+            }
+            
+            // Also check if the node itself is a conversation link
+            if (node.tagName === 'A' && 
+                (node.href.includes('/c/') || node.href.includes('/chat/'))) {
+              shouldRestore = true;
+            }
+          }
+        });
+      }
+    });
+    
+    if (shouldRestore) {
+      console.log('SideMarks: Conversation links detected, restoring bookmarks');
+      setTimeout(restoreBookmarks, 100);
+      setTimeout(restoreBookmarks, 500);
+    }
+  });
+  
+  // Observe the entire document for DOM changes
+  domObserver.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+  
+  // Additional periodic check for missing bookmarks (backup)
+  setInterval(() => {
+    try {
+      chrome.storage.local.get([STORAGE_KEY], (result) => {
+        const bookmarked = result[STORAGE_KEY] || {};
+        let restoredCount = 0;
+        
+        Object.keys(bookmarked).forEach(conversationId => {
+          if (bookmarked[conversationId] && bookmarked[conversationId].color) {
+            // Check if bookmark exists, if not restore it
+            const links = getConversationLinks();
+            let bookmarkExists = false;
+            
+            links.forEach(link => {
+              if (link.href.includes(conversationId)) {
+                const existingBookmark = link.querySelector('.chatgpt-bookmark');
+                if (existingBookmark) {
+                  bookmarkExists = true;
+                }
+              }
+            });
+            
+            if (!bookmarkExists) {
+              console.log(`SideMarks: Restoring missing bookmark for ${conversationId} on ${platform}`);
+              addColorBookmark(conversationId, bookmarked[conversationId].color, bookmarked[conversationId].type);
+              restoredCount++;
+            }
+          }
+        });
+        
+        if (restoredCount > 0) {
+          console.log(`SideMarks: Restored ${restoredCount} missing bookmarks on ${platform}`);
+        }
+      });
+    } catch (e) {
+      // Silently fail if storage is not available
+    }
+  }, 5000); // Check every 5 seconds
+  
+  console.log('SideMarks: SPA support initialized for', platform);
+}
+
 // Get conversation links based on platform
 function getConversationLinks() {
   const platform = getPlatform();
@@ -512,6 +624,9 @@ function restoreBookmarks() {
 function initializeBookmarks() {
   const platform = getPlatform();
   
+  // Set up SPA navigation support for all platforms
+  setupSPASupport();
+  
   if (platform === 'claude' || platform === 'grok') {
     // Claude and Grok might need more time for their dynamic content to load
     // Try multiple times with increasing delays
@@ -519,39 +634,6 @@ function initializeBookmarks() {
     setTimeout(restoreBookmarks, 500);
     setTimeout(restoreBookmarks, 1000);
     setTimeout(restoreBookmarks, 2000);
-    
-    // For Grok, also set up a periodic check to restore any missing bookmarks
-    if (platform === 'grok') {
-      setInterval(() => {
-        try {
-          chrome.storage.local.get([STORAGE_KEY], (result) => {
-            const bookmarked = result[STORAGE_KEY] || {};
-            Object.keys(bookmarked).forEach(conversationId => {
-              if (bookmarked[conversationId] && bookmarked[conversationId].color) {
-                // Check if bookmark exists, if not restore it
-                const links = getConversationLinks();
-                let bookmarkExists = false;
-                links.forEach(link => {
-                  if (link.href.includes(conversationId)) {
-                    const existingBookmark = link.querySelector('.chatgpt-bookmark');
-                    if (existingBookmark) {
-                      bookmarkExists = true;
-                    }
-                  }
-                });
-                
-                if (!bookmarkExists) {
-                  console.log(`SideMarks: Restoring missing bookmark for ${conversationId} on Grok`);
-                  addColorBookmark(conversationId, bookmarked[conversationId].color, bookmarked[conversationId].type);
-                }
-              }
-            });
-          });
-        } catch (e) {
-          // Silently fail if storage is not available
-        }
-      }, 3000); // Check every 3 seconds
-    }
   } else {
     // ChatGPT loads faster
     restoreBookmarks();

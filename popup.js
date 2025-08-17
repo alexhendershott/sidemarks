@@ -4,10 +4,16 @@ document.addEventListener('DOMContentLoaded', function() {
   const bookmarkCount = document.getElementById('bookmarkCount');
   const bookmarksList = document.getElementById('bookmarksList');
   const bookmarksContainer = document.getElementById('bookmarksContainer');
+  const searchContainer = document.getElementById('searchContainer');
+  const searchInput = document.getElementById('searchInput');
+
+  // Store all bookmarks for filtering
+  let allBookmarks = {};
 
   // Initialize popup
   updateBookmarkCount();
   loadBookmarksList();
+  setupSearch();
 
   function updateBookmarkCount() {
     chrome.storage.local.get(['chatgpt-bookmarked-conversations'], (result) => {
@@ -15,18 +21,94 @@ document.addEventListener('DOMContentLoaded', function() {
       const count = Object.values(bookmarked).filter(Boolean).length;
       bookmarkCount.textContent = count;
       
-      // Show/hide bookmarks list based on count
+      // Show/hide bookmarks list and search based on count
       if (count > 0) {
         bookmarksList.style.display = 'block';
+        searchContainer.style.display = 'block';
       } else {
         bookmarksList.style.display = 'none';
+        searchContainer.style.display = 'none';
       }
     });
+  }
+
+  function setupSearch() {
+    searchInput.addEventListener('input', function() {
+      filterBookmarks(this.value.trim().toLowerCase());
+    });
+    
+    // Clear search when popup is opened
+    searchInput.value = '';
+  }
+
+  function filterBookmarks(searchTerm) {
+    const bookmarkItems = document.querySelectorAll('.bookmark-item');
+    const platformHeaders = document.querySelectorAll('.platform-header');
+    const noResultsElement = document.querySelector('.no-results');
+    
+    // Remove existing no-results element
+    if (noResultsElement) {
+      noResultsElement.remove();
+    }
+    
+    let visibleCount = 0;
+    let hasVisibleBookmarks = false;
+    
+    // Filter bookmark items
+    bookmarkItems.forEach(item => {
+      const title = item.querySelector('.bookmark-title').textContent.toLowerCase();
+      const platform = item.querySelector('.bookmark-platform').textContent.toLowerCase();
+      
+      const matchesSearch = !searchTerm || 
+        title.includes(searchTerm) || 
+        platform.includes(searchTerm);
+      
+      if (matchesSearch) {
+        item.classList.remove('hidden');
+        visibleCount++;
+      } else {
+        item.classList.add('hidden');
+      }
+    });
+    
+    // Show/hide platform headers based on visible bookmarks
+    platformHeaders.forEach(header => {
+      const platformName = header.textContent;
+      const nextElements = [];
+      let element = header.nextElementSibling;
+      
+      // Collect all bookmark items until the next platform header
+      while (element && !element.classList.contains('platform-header')) {
+        if (element.classList.contains('bookmark-item')) {
+          nextElements.push(element);
+        }
+        element = element.nextElementSibling;
+      }
+      
+      // Check if any bookmarks in this platform are visible
+      const hasVisibleInPlatform = nextElements.some(item => !item.classList.contains('hidden'));
+      
+      if (hasVisibleInPlatform) {
+        header.classList.remove('hidden');
+        hasVisibleBookmarks = true;
+      } else {
+        header.classList.add('hidden');
+      }
+    });
+    
+    // Show no results message if no bookmarks match
+    if (visibleCount === 0 && searchTerm) {
+      const noResults = document.createElement('div');
+      noResults.className = 'no-results';
+      noResults.textContent = `No bookmarks found for "${searchTerm}"`;
+      bookmarksContainer.appendChild(noResults);
+    }
   }
 
   function loadBookmarksList() {
     chrome.storage.local.get(['chatgpt-bookmarked-conversations'], (result) => {
       const bookmarked = result['chatgpt-bookmarked-conversations'] || {};
+      allBookmarks = bookmarked; // Store for filtering
       console.log('SideMarks Popup: All bookmarks:', bookmarked);
       
       bookmarksContainer.innerHTML = '';
